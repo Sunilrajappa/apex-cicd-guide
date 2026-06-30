@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oracle APEX CI/CD — From Local Dev to Cloud Production</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1c1b1a;
+    --paper: #faf7f2;
+    --paper-raised: #ffffff;
+    --rust: #b1481c;
+    --rust-dim: #e8c9b8;
+    --rust-bg: #fbeee6;
+    --pine: #2f4b3c;
+    --pine-bg: #e9f0ea;
+    --pine-dim: #c3d8c9;
+    --slate: #5b6470;
+    --rule: #ddd6cb;
+    --rule-strong: #c7bca9;
+    --code-bg: #21241f;
+    --code-text: #e7e2d4;
+    --code-accent: #d49a6a;
+    --code-string: #a8c98a;
+    --code-key: #88b8c4;
+    --code-secret: #e0935b;
+    --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --mono: 'SF Mono', 'Fira Code', Menlo, Consolas, monospace;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  ::selection { background: var(--rust-dim); }
+
+  /* ---------- Layout shell ---------- */
+  .shell {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    border-right: 1px solid var(--rule);
+    background: var(--paper-raised);
+    padding: 28px 22px 60px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .brand-mark {
+    width: 30px; height: 30px;
+    background: var(--rust);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-family: var(--serif); font-weight: 700; font-size: 15px;
+    flex-shrink: 0;
+  }
+  .brand-text { font-family: var(--serif); font-size: 16px; font-weight: 700; letter-spacing: 0.01em; }
+  .brand-sub { font-size: 11.5px; color: var(--slate); margin: 4px 0 26px 40px; letter-spacing: 0.02em; }
+
+  .nav-group { margin-bottom: 22px; }
+  .nav-group-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--slate);
+    font-weight: 600;
+    margin-bottom: 8px;
+    padding-left: 2px;
+  }
+  .nav-link {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 14px;
+    transition: background 0.12s;
+  }
+  .nav-link:hover { background: var(--rust-bg); }
+  .nav-link.is-active { background: var(--rust-bg); color: var(--rust); font-weight: 600; }
+  .nav-num { font-family: var(--mono); font-size: 11px; color: var(--rust); flex-shrink: 0; width: 16px; }
+  .nav-link:not(.is-active) .nav-num { color: var(--rule-strong); }
+
+  /* ---------- Main content ---------- */
+  main { padding: 0; max-width: 880px; }
+  .content-pad { padding: 56px 64px 120px; }
+
+  .masthead {
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 28px;
+    margin-bottom: 48px;
+  }
+  .masthead-eyebrow {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--rust);
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .masthead h1 {
+    font-family: var(--serif);
+    font-size: 42px;
+    line-height: 1.12;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 14px;
+  }
+  .masthead p {
+    font-size: 17px;
+    color: var(--slate);
+    max-width: 640px;
+  }
+  .masthead-meta {
+    display: flex;
+    gap: 22px;
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--slate);
+    font-family: var(--mono);
+  }
+  .masthead-meta span { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pine); display: inline-block; }
+
+  section.chapter {
+    margin-bottom: 64px;
+    scroll-margin-top: 30px;
+  }
+
+  .chapter-head {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 6px;
+  }
+  .chapter-num {
+    font-family: var(--serif);
+    font-size: 15px;
+    color: var(--rust);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .chapter-head h2 {
+    font-family: var(--serif);
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .chapter-dek {
+    color: var(--slate);
+    font-size: 15px;
+    margin: 6px 0 26px;
+    max-width: 620px;
+  }
+
+  .divider-rule {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 64px 0;
+  }
+
+  /* ---------- Cards / boxes ---------- */
+  .box {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 22px 26px;
+    margin-bottom: 18px;
+  }
+  .box-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 9px;
+    border-radius: 20px;
+  }
+  .tag-you { background: var(--rust-bg); color: var(--rust); }
+  .tag-auto { background: var(--pine-bg); color: var(--pine); }
+  .tag-warn { background: #fbe8c9; color: #8a5a12; }
+
+  /* ---------- Step list ---------- */
+  .steps { list-style: none; counter-reset: step; }
+  .steps > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 14px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .steps > li:last-child { border-bottom: none; }
+  .steps > li::before {
+    content: counter(step);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--rust);
+    background: var(--rust-bg);
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+  .step-title { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+  .step-desc { font-size: 14px; color: var(--slate); line-height: 1.55; }
+
+  /* ---------- Code blocks ---------- */
+  .code-wrap { position: relative; margin: 10px 0 16px; }
+  .code-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--slate);
+    margin-bottom: 6px;
+    display: block;
+  }
+  pre.code {
+    background: var(--code-bg);
+    color: var(--code-text);
+    border-radius: 8px;
+    padding: 16px 18px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.65;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  pre.code .c1 { color: #7d8570; } /* comment */
+  pre.code .k1 { color: var(--code-key); }   /* yaml keys */
+  pre.code .s1 { color: var(--code-string); } /* strings/values */
+  pre.code .x1 { color: var(--code-secret); } /* secrets */
+  pre.code .p1 { color: var(--code-accent); } /* prompt/sql kw */
+
+  .copy-btn {
+    position: absolute;
+    top: 8px; right: 8px;
+    font-family: var(--sans);
+    font-size: 11px;
+    padding: 4px 11px;
+    border-radius: 5px;
+    border: 1px solid #3c4036;
+    background: #2c3027;
+    color: #b9bba9;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { background: #383d32; color: #fff; }
+  .copy-btn.copied { background: var(--pine); border-color: var(--pine); color: #fff; }
+
+  .inline-code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: var(--rust-bg);
+    color: var(--rust);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  /* ---------- Callouts ---------- */
+  .callout {
+    border-left: 3px solid var(--pine);
+    background: var(--pine-bg);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+    margin: 18px 0;
+  }
+  .callout.warn { border-color: #c08a2e; background: #fbf1de; }
+  .callout.danger { border-left-color: var(--rust); background: var(--rust-bg); }
+  .callout-title { font-weight: 700; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 5px; }
+  .callout.danger .callout-title { color: var(--rust); }
+  .callout.warn .callout-title { color: #8a5a12; }
+  .callout:not(.warn):not(.danger) .callout-title { color: var(--pine); }
+
+  /* ---------- Table ---------- */
+  table.kv {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0 20px;
+    font-size: 14px;
+  }
+  table.kv th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--slate);
+    padding: 0 14px 8px 0;
+    border-bottom: 2px solid var(--ink);
+  }
+  table.kv td {
+    padding: 10px 14px 10px 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  table.kv tr:last-child td { border-bottom: none; }
+  table.kv td:first-child { font-family: var(--mono); font-size: 12.5px; color: var(--rust); white-space: nowrap; }
+
+  /* ---------- Diagram (CSS pipeline) ---------- */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin: 28px 0;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  .pl-node {
+    background: var(--paper-raised);
+    border: 1.5px solid var(--ink);
+    border-radius: 9px;
+    padding: 14px 16px;
+    min-width: 150px;
+    flex-shrink: 0;
+  }
+  .pl-node.auto { border-color: var(--pine); background: var(--pine-bg); }
+  .pl-node-title { font-weight: 700; font-size: 13.5px; margin-bottom: 3px; }
+  .pl-node-sub { font-size: 11.5px; color: var(--slate); font-family: var(--mono); }
+  .pl-arrow {
+    display: flex; align-items: center; justify-content: center;
+    width: 36px; flex-shrink: 0;
+    color: var(--rule-strong);
+    font-size: 18px;
+  }
+
+  /* ---------- File tree ---------- */
+  .tree {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--code-bg);
+    color: var(--code-text);
+    border-radius: 8px;
+    padding: 18px 22px;
+    line-height: 1.95;
+  }
+  .tree .d { color: #88b8c4; }
+  .tree .f { color: #a8c98a; }
+  .tree .c { color: #7d8570; }
+
+  /* ---------- Footer ---------- */
+  footer {
+    border-top: 1px solid var(--rule);
+    padding: 32px 64px 50px;
+    font-size: 13px;
+    color: var(--slate);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* ---------- OS toggle ---------- */
+  .os-switch {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: inline-flex;
+    background: var(--paper-raised);
+    border: 1.5px solid var(--ink);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 36px;
+    gap: 2px;
+  }
+  .os-btn {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 18px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--slate);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.15s;
+  }
+  .os-btn.active { background: var(--ink); color: var(--paper); }
+  .os-btn:not(.active):hover { background: var(--rust-bg); color: var(--ink); }
+
+  .os-only { display: none; }
+  body.os-mac .os-only.mac { display: block; }
+  body.os-mac .os-only.mac.inline { display: inline; }
+  body.os-win .os-only.win { display: block; }
+  body.os-win .os-only.win.inline { display: inline; }
+
+  .os-pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--rule);
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+
+  /* ---------- Mobile nav toggle ---------- */
+  .mobile-bar { display: none; }
+
+
+  @media (max-width: 920px) {
+    .shell { grid-template-columns: 1fr; }
+    .sidebar {
+      position: relative;
+      height: auto;
+      display: none;
+      border-right: none;
+      border-bottom: 1px solid var(--rule);
+    }
+    .sidebar.open { display: block; }
+    .mobile-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--rule);
+      background: var(--paper-raised);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .mobile-bar button {
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--rule-strong);
+      background: var(--paper);
+      cursor: pointer;
+    }
+    .content-pad { padding: 36px 22px 80px; }
+    .masthead h1 { font-size: 30px; }
+    footer { padding: 28px 22px 40px; flex-direction: column; gap: 10px; align-items: flex-start; }
+    .pipeline { flex-direction: column; }
+    .pl-arrow { transform: rotate(90deg); width: auto; height: 24px; }
+  }
+</style>
+</head>
+<body class="os-mac">
+
+<div class="mobile-bar">
+  <div class="brand"><div class="brand-mark">λ</div><div class="brand-text">APEX CI/CD</div></div>
+  <button onclick="document.querySelector('.sidebar').classList.toggle('open')">Contents</button>
+</div>
+
+<div class="shell">
+
+  <!-- ============ SIDEBAR ============ -->
+  <nav class="sidebar">
+    <div class="brand"><div class="brand-mark">λ</div><div class="brand-text">APEX CI/CD</div></div>
+    <p class="brand-sub">A working field guide</p>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Before you start</div>
+      <a class="nav-link" href="#foundations"><span class="nav-num">00</span> If you've never used Git</a>
+      <a class="nav-link" href="#terminal-basics"><span class="nav-num">00b</span> The terminal, briefly</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Orientation</div>
+      <a class="nav-link" href="#concept"><span class="nav-num">01</span> The mental model</a>
+      <a class="nav-link" href="#architecture"><span class="nav-num">02</span> Target architecture</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">One-time setup</div>
+      <a class="nav-link" href="#prereqs"><span class="nav-num">03</span> Prerequisites</a>
+      <a class="nav-link" href="#git-github"><span class="nav-num">04</span> Git &amp; GitHub repo</a>
+      <a class="nav-link" href="#autonomous-db"><span class="nav-num">05</span> Autonomous Database</a>
+      <a class="nav-link" href="#workspaces"><span class="nav-num">06</span> DEV &amp; PROD workspaces</a>
+      <a class="nav-link" href="#wallet"><span class="nav-num">07</span> Wallet &amp; local connection</a>
+      <a class="nav-link" href="#project-structure"><span class="nav-num">08</span> Project structure</a>
+      <a class="nav-link" href="#secrets"><span class="nav-num">09</span> GitHub Secrets</a>
+      <a class="nav-link" href="#workflow-file"><span class="nav-num">10</span> The deploy workflow</a>
+      <a class="nav-link" href="#first-run"><span class="nav-num">11</span> First export &amp; deploy</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Living with it</div>
+      <a class="nav-link" href="#day-two"><span class="nav-num">12</span> Shipping an enhancement</a>
+      <a class="nav-link" href="#troubleshooting"><span class="nav-num">13</span> Troubleshooting log</a>
+      <a class="nav-link" href="#glossary"><span class="nav-num">14</span> Glossary</a>
+    </div>
+  </nav>
+
+  <!-- ============ MAIN ============ -->
+  <main>
+    <div class="content-pad">
+
+      <header class="masthead">
+        <div class="masthead-eyebrow">Field Guide</div>
+        <h1>Oracle APEX CI/CD<br>from Local Dev to Cloud Production</h1>
+        <p>A complete, working pipeline that exports an APEX application from a development workspace and deploys it automatically to a production workspace on Oracle Autonomous Database, triggered by a single <span class="inline-code">git push</span>.</p>
+        <div class="masthead-meta">
+          <span><span class="dot"></span> Oracle Autonomous Database (Always Free)</span>
+          <span><span class="dot"></span> GitHub Actions</span>
+          <span><span class="dot"></span> SQLcl</span>
+        </div>
+      </header>
+
+      <div class="os-switch" id="osSwitch">
+        <button class="os-btn active" data-os="mac" onclick="setOS('mac')">🍎 macOS</button>
+        <button class="os-btn" data-os="win" onclick="setOS('win')">🪟 Windows</button>
+      </div>
+
+      <!-- ============ 00 FOUNDATIONS ============ -->
+      <section class="chapter" id="foundations">
+        <div class="chapter-head"><span class="chapter-num">00</span><h2>If you've never used Git before</h2></div>
+        <p class="chapter-dek">Five minutes of vocabulary that makes the rest of this guide make sense. Skip this chapter only if you're already comfortable committing and pushing.</p>
+
+        <div class="box">
+          <div class="box-title">What Git actually is</div>
+          <p style="font-size:14.5px; line-height:1.75;">Git is a program that runs on your own computer and keeps a complete history of every change made to a folder of files. Think of it as an extremely detailed "track changes" for an entire project, not just one document. Every time you save a snapshot (called a <strong>commit</strong>), Git remembers exactly what every file looked like at that moment, forever, so you can always go back.</p>
+        </div>
+
+        <div class="box">
+          <div class="box-title">What GitHub actually is</div>
+          <p style="font-size:14.5px; line-height:1.75;">GitHub is a website that stores a copy of your Git history online. Git itself doesn't need the internet — it works perfectly on your laptop alone. GitHub is just a remote backup and sharing point, and in this guide, it's also the trigger for our automation: GitHub watches for new commits and runs our deployment whenever one arrives.</p>
+        </div>
+
+        <table class="kv">
+          <tr><th>Term</th><th>What it means in plain language</th></tr>
+          <tr><td>Repository (repo)</td><td>A project folder that Git is keeping history for. "Create a repo" just means "create that project folder, on GitHub."</td></tr>
+          <tr><td>Clone</td><td>Download a copy of a GitHub repo onto your own computer, with its full history attached.</td></tr>
+          <tr><td>Commit</td><td>Save a snapshot of your current changes, with a short message describing what changed.</td></tr>
+          <tr><td>Push</td><td>Upload your local commits to GitHub, so the online copy matches your computer.</td></tr>
+          <tr><td>Pull</td><td>Download any new commits from GitHub that aren't on your computer yet.</td></tr>
+          <tr><td>Branch</td><td>A separate line of work that doesn't affect the main project until it's merged in. Useful for trying something without risk.</td></tr>
+          <tr><td>Remote / origin</td><td>The address of the GitHub copy that your local Git is linked to. "origin" is just the default nickname for it.</td></tr>
+        </table>
+
+        <div class="callout">
+          <div class="callout-title">The only loop you actually need to remember</div>
+          Almost everything in this guide reduces to three commands, run in this order, every single time you want to save and share a change:
+          <div class="code-wrap" style="margin-top:12px;">
+            <pre class="code" id="cfoundation">git add .
+git commit -m "describe what you changed"
+git push origin main</pre>
+            <button class="copy-btn" onclick="copyBlock('cfoundation', this)">Copy</button>
+          </div>
+          <span style="font-size:13.5px;"><span class="inline-code">add</span> stages your changes, <span class="inline-code">commit</span> saves a snapshot with a message, <span class="inline-code">push</span> sends it to GitHub. You will type some version of these three lines dozens of times — memorising this rhythm is worth more than memorising anything else in this guide.</span>
+        </div>
+      </section>
+
+      <!-- ============ 00b TERMINAL ============ -->
+      <section class="chapter" id="terminal-basics">
+        <div class="chapter-head"><span class="chapter-num">00b</span><h2>The terminal, briefly</h2></div>
+        <p class="chapter-dek">Why we keep opening a black window with white text, and the handful of commands that get reused constantly.</p>
+
+        <p style="font-size:14.5px; line-height:1.75; margin-bottom:18px;">
+          <span class="os-only mac inline">The <strong>Terminal</strong> app (search for "Terminal" in Spotlight), or the integrated terminal inside VS Code via <span class="inline-code">View → Terminal</span>,</span>
+          <span class="os-only win inline">The <strong>PowerShell</strong> or <strong>Command Prompt</strong> app (search "PowerShell" in the Start menu), or the integrated terminal inside VS Code via <span class="inline-code">View → Terminal</span>,</span>
+          is a way of typing commands directly to your computer instead of clicking buttons. Git, and the Oracle tool we use to talk to the database (SQLcl), are both command-line tools — they don't have a graphical window, only this text interface. It looks intimidating at first but you'll only ever need a small, repeated set of commands.</p>
+
+        <div class="os-only mac">
+        <table class="kv">
+          <tr><th>Command</th><th>What it does</th></tr>
+          <tr><td>cd folder-name</td><td>"Change directory" — move into a folder</td></tr>
+          <tr><td>cd ..</td><td>Move up one folder, out of the current one</td></tr>
+          <tr><td>pwd</td><td>"Print working directory" — show which folder you're currently in</td></tr>
+          <tr><td>ls</td><td>List the files and folders in the current location</td></tr>
+          <tr><td>ls -la</td><td>Same as above, but including hidden files like <span class="inline-code">.git</span></td></tr>
+          <tr><td>mkdir name</td><td>Create a new folder</td></tr>
+          <tr><td>cat filename</td><td>Print a file's contents to the screen</td></tr>
+        </table>
+        </div>
+
+        <div class="os-only win">
+        <table class="kv">
+          <tr><th>Command (PowerShell)</th><th>What it does</th></tr>
+          <tr><td>cd folder-name</td><td>"Change directory" — move into a folder</td></tr>
+          <tr><td>cd ..</td><td>Move up one folder, out of the current one</td></tr>
+          <tr><td>pwd</td><td>Show which folder you're currently in (also works in PowerShell)</td></tr>
+          <tr><td>dir &nbsp;<span style="color:var(--slate);font-size:12px;">(or ls)</span></td><td>List the files and folders in the current location</td></tr>
+          <tr><td>dir -Force</td><td>Same as above, but including hidden files like <span class="inline-code">.git</span></td></tr>
+          <tr><td>mkdir name</td><td>Create a new folder</td></tr>
+          <tr><td>type filename</td><td>Print a file's contents to the screen</td></tr>
+        </table>
+        <p style="font-size:13px; color:var(--slate); margin-top:-6px;">PowerShell understands many Mac/Linux command names too (<span class="inline-code">ls</span>, <span class="inline-code">cat</span>, <span class="inline-code">pwd</span>) as built-in aliases, so most commands in this guide will work either way. Where they genuinely differ, both are shown.</p>
+        </div>
+
+        <div class="callout warn">
+          <div class="callout-title">A password with an @ symbol will break commands later</div>
+          Throughout this guide, database connection commands are built as one long string like <span class="inline-code">user/password@service</span>. The terminal and Oracle's tools both treat <span class="inline-code">@</span> as a meaningful separator character. If your password contains an <span class="inline-code">@</span>, the command will silently misread where the password ends — choose passwords with symbols like <span class="inline-code">#</span> instead, never <span class="inline-code">@</span>.
+        </div>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 01 CONCEPT ============ -->
+      <section class="chapter" id="concept">
+        <div class="chapter-head"><span class="chapter-num">01</span><h2>The mental model</h2></div>
+        <p class="chapter-dek">Before touching a terminal, hold onto these three facts — everything else in this guide is just mechanics around them.</p>
+
+        <div class="box">
+          <div class="box-title">APEX and Git live in different worlds</div>
+          <p style="font-size:14.5px; color:var(--ink); line-height:1.7;">A change made in App Builder exists only inside the Oracle database. Git cannot see it, version it, or move it anywhere, until it has been <strong>exported</strong> to plain <span class="inline-code">.sql</span> files on disk. Exporting is the bridge between the two worlds — every cycle in this guide starts there.</p>
+        </div>
+
+        <div class="box">
+          <div class="box-title">Two workspaces, one database</div>
+          <p style="font-size:14.5px; color:var(--ink); line-height:1.7;">DEV and PROD are not two different servers — they are two isolated workspaces (and two isolated schemas) sitting on the <strong>same</strong> Always Free Autonomous Database. This is what makes the whole exercise free and realistic at the same time.</p>
+        </div>
+
+        <div class="box">
+          <div class="box-title">Three manual steps, the rest is automatic</div>
+          <p style="font-size:14.5px; color:var(--ink); line-height:1.7;">Export, commit, push — that's the entirety of human involvement after setup is complete. GitHub Actions does the rest: downloading SQLcl, unpacking the wallet, setting workspace context, and running the import.</p>
+        </div>
+      </section>
+
+      <!-- ============ 01 ARCHITECTURE ============ -->
+      <section class="chapter" id="architecture">
+        <div class="chapter-head"><span class="chapter-num">02</span><h2>Target architecture</h2></div>
+        <p class="chapter-dek">What you're building, end to end.</p>
+
+        <div class="pipeline">
+          <div class="pl-node"><div class="pl-node-title">APEX Builder</div><div class="pl-node-sub">DEV workspace</div></div>
+          <div class="pl-arrow">→</div>
+          <div class="pl-node"><div class="pl-node-title">SQLcl export</div><div class="pl-node-sub">on your computer</div></div>
+          <div class="pl-arrow">→</div>
+          <div class="pl-node"><div class="pl-node-title">Git commit</div><div class="pl-node-sub">VS Code</div></div>
+          <div class="pl-arrow">→</div>
+          <div class="pl-node"><div class="pl-node-title">git push</div><div class="pl-node-sub">→ GitHub</div></div>
+          <div class="pl-arrow">→</div>
+          <div class="pl-node auto"><div class="pl-node-title">GitHub Actions</div><div class="pl-node-sub">automatic</div></div>
+          <div class="pl-arrow">→</div>
+          <div class="pl-node auto"><div class="pl-node-title">APEX Builder</div><div class="pl-node-sub">PROD workspace</div></div>
+        </div>
+
+        <table class="kv">
+          <tr><th>Layer</th><th>What it is in this setup</th></tr>
+          <tr><td>Database</td><td>One Oracle Autonomous Database, Transaction Processing workload, Always Free tier</td></tr>
+          <tr><td>DEV</td><td>Workspace <span class="inline-code">SUNIL_DEV</span>, schema <span class="inline-code">SUNIL_GDS</span> — where app changes are made</td></tr>
+          <tr><td>PROD</td><td>Workspace <span class="inline-code">SUNIL_PROD</span>, schema <span class="inline-code">SUNIL_GDS_PRD</span> — where the app is deployed</td></tr>
+          <tr><td>Source control</td><td>A GitHub repository holding the split APEX export and the workflow definition</td></tr>
+          <tr><td>CI/CD runner</td><td>GitHub Actions, triggered on every push to <span class="inline-code">main</span></td></tr>
+          <tr><td>Connectivity</td><td>Oracle wallet (mTLS) stored as a base64-encoded GitHub Secret</td></tr>
+        </table>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 02 PREREQS ============ -->
+      <section class="chapter" id="prereqs">
+        <div class="chapter-head"><span class="chapter-num">03</span><h2>Prerequisites</h2></div>
+        <p class="chapter-dek">Everything you need installed and accounts you need created before starting.</p>
+
+        <ol class="steps">
+          <li><div><div class="step-title">Oracle Cloud account <span class="tag tag-you">free</span></div><div class="step-desc">Sign up at <span class="inline-code">cloud.oracle.com</span>. A credit card is required for identity verification only — Always Free resources are never charged.</div></div></li>
+          <li><div><div class="step-title">GitHub account</div><div class="step-desc">Free at <span class="inline-code">github.com</span>. This hosts your code and runs the CI/CD pipeline.</div></div></li>
+          <li><div><div class="step-title">VS Code</div><div class="step-desc">Your editor. Install the <strong>Oracle APEX</strong> and <strong>GitLens</strong> extensions for the smoothest experience.</div></div></li>
+          <li><div><div class="step-title">Oracle SQLcl</div><div class="step-desc">The command-line tool used to export and import APEX applications. Requires Java 11 or higher.</div></div></li>
+          <li><div><div class="step-title">Git</div><div class="step-desc">Installed and configured with your GitHub credentials (VS Code will prompt you to authenticate on first push).</div></div></li>
+        </ol>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 03 GIT/GITHUB ============ -->
+      <section class="chapter" id="git-github">
+        <div class="chapter-head"><span class="chapter-num">04</span><h2>Git &amp; GitHub repository</h2></div>
+        <p class="chapter-dek">Create the empty repository first, then clone it locally — this avoids remote-mismatch issues entirely.</p>
+
+        <div class="box">
+          <div class="box-title">On GitHub</div>
+          <p style="font-size:14px; color:var(--slate); margin-bottom:10px;">Go to <span class="inline-code">github.com/new</span> and create a repository:</p>
+          <ul style="margin-left:18px; font-size:14px; line-height:1.9;">
+            <li>Name it something memorable, e.g. <span class="inline-code">apextogo</span></li>
+            <li>Leave <strong>README</strong>, <strong>.gitignore</strong>, and <strong>license</strong> unchecked</li>
+            <li>Click <strong>Create repository</strong></li>
+          </ul>
+        </div>
+
+        <div class="os-only mac">
+        <div class="code-wrap">
+          <span class="code-label">On your Mac — clone the empty repo</span>
+          <pre class="code" id="c1mac">cd ~/Projects
+git clone https://github.com/YOUR-USERNAME/apextogo.git
+cd apextogo</pre>
+          <button class="copy-btn" onclick="copyBlock('c1mac', this)">Copy</button>
+        </div>
+        </div>
+        <div class="os-only win">
+        <div class="code-wrap">
+          <span class="code-label">On Windows (PowerShell) — clone the empty repo</span>
+          <pre class="code" id="c1win">cd C:\Projects
+git clone https://github.com/YOUR-USERNAME/apextogo.git
+cd apextogo</pre>
+          <button class="copy-btn" onclick="copyBlock('c1win', this)">Copy</button>
+        </div>
+        <p style="font-size:13px; color:var(--slate); margin-top:-6px;">If <span class="inline-code">C:\Projects</span> doesn't exist yet, create it first with <span class="inline-code">mkdir C:\Projects</span>.</p>
+        </div>
+        <p style="font-size:13.5px; color:var(--slate);">Cloning instead of <span class="inline-code">git init</span> + <span class="inline-code">git remote add</span> means the remote is configured correctly from the very first command — no "remote origin already exists" errors later.</p>
+
+        <div class="callout">
+          <div class="callout-title">First push will ask you to sign in — this is expected</div>
+          The first time you run <span class="inline-code">git push</span>, VS Code or your terminal will show a popup: <em>"The extension 'GitHub' wants to sign in using GitHub."</em> Click <strong>Allow</strong>. A browser tab opens to GitHub's login page; sign in and click <strong>Authorize</strong>. Return to your terminal — the push completes on its own. This authentication only happens once; every push afterward is silent.
+        </div>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 04 AUTONOMOUS DB ============ -->
+      <section class="chapter" id="autonomous-db">
+        <div class="chapter-head"><span class="chapter-num">05</span><h2>Create the Autonomous Database</h2></div>
+        <p class="chapter-dek">This is the one database that will host both your DEV and PROD workspaces.</p>
+
+        <p style="font-size:14.5px; line-height:1.75; margin-bottom:18px;">If you haven't used Oracle Cloud before: this step asks Oracle to provision a real, dedicated database for you, hosted in one of their data centers, for free, permanently (within Always Free limits). It takes about two minutes to create and requires no database administration knowledge — Oracle manages patching, backups, and scaling automatically.</p>
+
+        <div class="callout danger">
+          <div class="callout-title">Choose the right workload type</div>
+          The <strong>APEX workload type</strong> does not support wallet downloads or direct SQLcl connections on Free Tier — this blocks CI/CD entirely. Always choose <strong>Transaction Processing</strong> instead; APEX is enabled separately afterward.
+        </div>
+
+        <ol class="steps">
+          <li><div><div class="step-title">Open Autonomous Database in OCI</div><div class="step-desc">After signing in to <span class="inline-code">cloud.oracle.com</span>, click the ☰ hamburger menu (top left) → <strong>Oracle Database</strong> → <strong>Autonomous Database</strong> → <strong>Create Autonomous Database</strong>.</div></div></li>
+          <li><div><div class="step-title">Configure the instance</div><div class="step-desc">Display name and database name: anything memorable, they can be the same. Workload type: <strong>Transaction Processing</strong>. Deployment type: <strong>Serverless</strong> (the default). Toggle <strong>Always Free</strong> on — this is the switch that guarantees you'll never be billed for this database. Set and carefully record an ADMIN password somewhere safe, like a password manager or a note — you'll need it repeatedly.</div></div></li>
+          <li><div><div class="step-title">Avoid the @ symbol in any password you set here</div><div class="step-desc">SQLcl's connection string uses <span class="inline-code">@</span> as a separator between the password and the database address. A password containing <span class="inline-code">@</span> will silently truncate the connection string and produce a confusing <span class="inline-code">ORA-12154</span> "alias not found" error that looks unrelated to the real cause. Use <span class="inline-code">#</span> or other symbols instead.</div></div></li>
+          <li><div><div class="step-title">Click Create Autonomous Database, then wait</div><div class="step-desc">You'll be returned to a database list showing a status of <strong>Provisioning</strong>. Refresh the page after a minute or two — it will change to <strong>Available</strong> with a green indicator. This means the database is running and ready.</div></div></li>
+          <li><div><div class="step-title">Enable APEX</div><div class="step-desc">Click into the database you just created → <strong>Tools</strong> tab → find <strong>Oracle APEX</strong> in the list → click <strong>Open APEX</strong>. This is a one-time activation; APEX now runs inside this database, ready for workspaces to be created in the next chapter.</div></div></li>
+        </ol>
+
+        <div class="callout warn">
+          <div class="callout-title">If the database shows "Stopped" later</div>
+          Always Free databases pause automatically after a period of inactivity to save resources — this is normal and no data is lost. To resume: open the database page, click the <strong>⋯</strong> menu or the <strong>Start</strong> button, and wait about a minute for it to return to <strong>Available</strong>.
+        </div>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 05 WORKSPACES ============ -->
+      <section class="chapter" id="workspaces">
+        <div class="chapter-head"><span class="chapter-num">06</span><h2>Create DEV and PROD workspaces</h2></div>
+        <p class="chapter-dek">Two isolated workspaces, two isolated schemas, same database.</p>
+
+        <p style="font-size:14.5px; line-height:1.75; margin-bottom:16px;">A <strong>workspace</strong> in APEX is a self-contained area with its own users, applications, and data — like having two separate APEX accounts on the same underlying database. A <strong>schema</strong> is the actual storage area inside the database where that workspace's tables live. We need two of each: one pair we'll experiment freely in (DEV), and one pair that represents "what's actually live" (PROD).</p>
+
+        <ol class="steps">
+          <li><div><div class="step-title">Sign in to APEX Administration</div><div class="step-desc">From the database's APEX URL, look for an <strong>Administration</strong> link (often at the bottom of the workspace sign-in page) or browse to <span class="inline-code">https://your-host/ords/apex_admin</span>. Sign in with username <span class="inline-code">ADMIN</span> and the ADMIN password you set when creating the database.</div></div></li>
+          <li><div><div class="step-title">Open Manage Workspaces</div><div class="step-desc">In the top navigation, click <strong>Manage Workspaces</strong> → <strong>Create Workspace</strong>.</div></div></li>
+          <li><div><div class="step-title">Fill in the DEV workspace</div><div class="step-desc">Workspace name <span class="inline-code">SUNIL_DEV</span>; when asked for a schema, choose <strong>create new schema</strong> and name it <span class="inline-code">SUNIL_GDS</span> with its own password (again, no <span class="inline-code">@</span>); admin username <span class="inline-code">SUNILDEV</span>; provide an email address (required, but doesn't need to be verified for this purpose). Click <strong>Create Workspace</strong>.</div></div></li>
+          <li><div><div class="step-title">Repeat for PROD</div><div class="step-desc">Click <strong>Create Workspace</strong> again. This time: workspace name <span class="inline-code">SUNIL_PROD</span>, new schema <span class="inline-code">SUNIL_GDS_PRD</span>, admin username <span class="inline-code">SUNILPRD</span>.</div></div></li>
+        </ol>
+
+        <table class="kv">
+          <tr><th>Field</th><th>DEV</th><th>PROD</th></tr>
+          <tr><td>Workspace</td><td>SUNIL_DEV</td><td>SUNIL_PROD</td></tr>
+          <tr><td>Schema (new)</td><td>SUNIL_GDS</td><td>SUNIL_GDS_PRD</td></tr>
+          <tr><td>Admin user</td><td>SUNILDEV</td><td>SUNILPRD</td></tr>
+        </table>
+
+        <div class="callout">
+          <div class="callout-title">Why different schema names matter</div>
+          Each schema is a fully isolated container of tables and data. Reusing the same schema name for both workspaces would mean DEV and PROD share live data — defeating the entire purpose of separating them.
+        </div>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 06 WALLET ============ -->
+      <section class="chapter" id="wallet">
+        <div class="chapter-head"><span class="chapter-num">07</span><h2>Wallet &amp; local connection</h2></div>
+        <p class="chapter-dek">The wallet is the security credential that lets SQLcl — running on your computer, and later inside GitHub Actions — connect securely to the Autonomous Database.</p>
+
+        <p style="font-size:14.5px; line-height:1.75; margin-bottom:18px;">A <strong>wallet</strong> is a small bundle of certificate files that proves to Oracle's servers that a connection attempt is legitimate, similar to how a key proves you're allowed into a building. Oracle Autonomous Database requires this extra layer of security by default — a username and password alone aren't enough. You'll download this bundle once, and reuse it both locally and (later) inside the automated pipeline.</p>
+
+        <ol class="steps">
+          <li><div><div class="step-title">Download the wallet</div><div class="step-desc">Database page → <strong>Database Connection</strong> → <strong>Download Wallet</strong>. Set a wallet password and save the zip somewhere stable —
+            <span class="os-only mac inline">e.g. <span class="inline-code">~/Documents/wallet/</span></span>
+            <span class="os-only win inline">e.g. <span class="inline-code">C:\Users\YourName\Documents\wallet\</span></span>.
+          </div></div></li>
+          <li><div><div class="step-title">Unzip it</div><div class="step-desc">
+            <div class="os-only mac">
+            <div class="code-wrap">
+              <pre class="code" id="c2mac">unzip Wallet_XXXXXXXX.zip -d wallet_unzipped
+cat wallet_unzipped/tnsnames.ora</pre>
+              <button class="copy-btn" onclick="copyBlock('c2mac', this)">Copy</button>
+            </div>
+            </div>
+            <div class="os-only win">
+            <div class="code-wrap">
+              <pre class="code" id="c2win">Expand-Archive Wallet_XXXXXXXX.zip -DestinationPath wallet_unzipped
+type wallet_unzipped\tnsnames.ora</pre>
+              <button class="copy-btn" onclick="copyBlock('c2win', this)">Copy</button>
+            </div>
+            <p style="font-size:13px; color:var(--slate); margin-top:-6px;">Alternatively, right-click the zip in File Explorer → <strong>Extract All</strong> works just as well.</p>
+            </div>
+            Note one of the service names, e.g. <span class="inline-code">xxxxx_tp</span> — this is what you connect to.
+          </div></div></li>
+          <li><div><div class="step-title">Test the connection</div><div class="step-desc">
+            <div class="os-only mac">
+            <div class="code-wrap">
+              <pre class="code" id="c3mac"><span class="p1">sql</span> <span class="s1">"admin/YourPassword123#@xxxxx_tp?TNS_ADMIN=/full/path/to/wallet_unzipped"</span></pre>
+              <button class="copy-btn" onclick="copyBlock('c3mac', this)">Copy</button>
+            </div>
+            </div>
+            <div class="os-only win">
+            <div class="code-wrap">
+              <pre class="code" id="c3win"><span class="p1">sql</span> <span class="s1">"admin/YourPassword123#@xxxxx_tp?TNS_ADMIN=C:\full\path\to\wallet_unzipped"</span></pre>
+              <button class="copy-btn" onclick="copyBlock('c3win', this)">Copy</button>
+            </div>
+            <p style="font-size:13px; color:var(--slate); margin-top:-6px;">Use the same double-quoted form in both PowerShell and Command Prompt — it works in either.</p>
+            </div>
+            A <span class="inline-code">SQL&gt;</span> prompt confirms success. This single command proves your computer can reach Oracle Cloud — GitHub Actions will run the exact same kind of command later, just from a different machine.
+          </div></div></li>
+        </ol>
+
+        <div class="os-only mac">
+        <div class="callout warn">
+          <div class="callout-title">zsh and special characters</div>
+          On zsh (the default Mac shell), an unquoted <span class="inline-code">?</span> in the connection string is interpreted as a glob pattern and fails with <span class="inline-code">no matches found</span>. Always wrap the whole connection string in double quotes.
+        </div>
+        </div>
+
+        <div class="os-only win">
+        <div class="callout warn">
+          <div class="callout-title">Quoting in PowerShell</div>
+          PowerShell generally handles the <span class="inline-code">?</span> and <span class="inline-code">@</span> characters fine inside double quotes, but if a command behaves unexpectedly, try running it from <strong>Command Prompt</strong> instead — it has fewer special characters to worry about.
+        </div>
+        </div>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 07 PROJECT STRUCTURE ============ -->
+      <section class="chapter" id="project-structure">
+        <div class="chapter-head"><span class="chapter-num">08</span><h2>Project structure</h2></div>
+        <p class="chapter-dek">What lives in the Git repository.</p>
+
+        <div class="tree">
+<span class="d">apextogo/</span>
+├── <span class="d">.github/</span>
+│   └── <span class="d">workflows/</span>
+│       └── <span class="f">deploy.yml</span>        <span class="c"># CI/CD pipeline definition</span>
+├── <span class="d">apex/</span>
+│   └── <span class="d">f100/</span>             <span class="c"># split export of application 100</span>
+│       ├── <span class="d">application/</span>
+│       ├── <span class="f">install.sql</span>      <span class="c"># master import script — this is what gets run</span>
+│       └── <span class="f">copyright.txt</span>
+├── <span class="d">db/</span>                  <span class="c"># supporting schema objects, if any</span>
+├── <span class="f">.gitignore</span>
+└── <span class="f">README.md</span>
+        </div>
+
+        <div class="code-wrap">
+          <span class="code-label">.gitignore</span>
+          <pre class="code" id="c4">*.wallet
+*.log
+*.dmp
+credentials.sql
+.env
+*.keystore
+wallet/
+wallet.zip
+.DS_Store</pre>
+          <button class="copy-btn" onclick="copyBlock('c4', this)">Copy</button>
+        </div>
+
+        <div class="callout danger">
+          <div class="callout-title">Never commit the wallet zip itself</div>
+          The wallet grants direct database access. It is converted to a GitHub Secret (next chapter) and never stored in the repository.
+        </div>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 08 SECRETS ============ -->
+      <section class="chapter" id="secrets">
+        <div class="chapter-head"><span class="chapter-num">09</span><h2>GitHub Secrets</h2></div>
+        <p class="chapter-dek">Credentials GitHub Actions needs, stored encrypted, never visible in logs.</p>
+
+        <div class="os-only mac">
+        <div class="code-wrap">
+          <span class="code-label">Convert the wallet to base64 (macOS)</span>
+          <pre class="code" id="c5mac"><span class="p1">base64</span> -i ~/Documents/wallet/Wallet_XXXXXXXX.zip | pbcopy</pre>
+          <button class="copy-btn" onclick="copyBlock('c5mac', this)">Copy</button>
+        </div>
+        <p style="font-size:13.5px; color:var(--slate); margin-bottom:18px;"><span class="inline-code">pbcopy</span> sends the output straight to your clipboard — nothing is printed to the screen.</p>
+        </div>
+
+        <div class="os-only win">
+        <div class="code-wrap">
+          <span class="code-label">Convert the wallet to base64 (PowerShell)</span>
+          <pre class="code" id="c5win">[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\Users\YourName\Documents\wallet\Wallet_XXXXXXXX.zip")) | Set-Clipboard</pre>
+          <button class="copy-btn" onclick="copyBlock('c5win', this)">Copy</button>
+        </div>
+        <p style="font-size:13.5px; color:var(--slate); margin-bottom:18px;"><span class="inline-code">Set-Clipboard</span> sends the output straight to your clipboard — nothing is printed to the screen. This command must be run in PowerShell, not Command Prompt.</p>
+        </div>
+
+        <p style="font-size:14.5px; margin-bottom:12px;">In your repository: <strong>Settings → Secrets and variables → Actions → New repository secret.</strong> Add each of these:</p>
+
+        <table class="kv">
+          <tr><th>Secret name</th><th>Value</th></tr>
+          <tr><td>DB_PROD_USER</td><td>The PROD schema name, e.g. <span class="inline-code">SUNIL_GDS_PRD</span></td></tr>
+          <tr><td>DB_PROD_PASS</td><td>That schema's password — no <span class="inline-code">@</span> symbol</td></tr>
+          <tr><td>DB_SERVICE</td><td>The TNS service name, e.g. <span class="inline-code">xxxxx_tp</span></td></tr>
+          <tr><td>WALLET_ZIP_B64</td><td>Pasted from clipboard in the step above</td></tr>
+        </table>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 09 WORKFLOW FILE ============ -->
+      <section class="chapter" id="workflow-file">
+        <div class="chapter-head"><span class="chapter-num">10</span><h2>The deploy workflow</h2></div>
+        <p class="chapter-dek">This is the file that turns a push into a deployment. It downloads SQLcl, reconstructs the wallet, sets the correct APEX workspace context, then runs the import.</p>
+
+        <p style="font-size:14.5px; line-height:1.75; margin-bottom:18px;">This file is written in <strong>YAML</strong>, a plain-text format that uses indentation (spaces, never tabs) to show structure — similar to how paragraphs and bullet points show structure in a document. GitHub reads this file automatically whenever it lives at the exact path <span class="inline-code">.github/workflows/deploy.yml</span> inside a repository; no separate registration step is needed. The file describes one job: on every push to the <span class="inline-code">main</span> branch, spin up a temporary Linux computer, install some tools, and run our deployment commands on it.</p>
+
+        <div class="callout warn">
+          <div class="callout-title">The one non-obvious step</div>
+          Running <span class="inline-code">install.sql</span> directly fails with <span class="inline-code">ORA-20001: Package variable g_security_group_id must be set</span>. APEX needs to know which workspace it's installing into before the import runs — this is done with <span class="inline-code">apex_util.set_security_group_id</span>, looked up from the workspace name.
+        </div>
+
+        <div class="code-wrap">
+          <span class="code-label">.github/workflows/deploy.yml</span>
+          <pre class="code" id="c6"><span class="k1">name</span>: <span class="s1">Deploy DEV export to PROD APEX Workspace</span>
+
+<span class="k1">on</span>:
+  <span class="k1">push</span>:
+    <span class="k1">branches</span>: [<span class="s1">main</span>]
+
+<span class="k1">jobs</span>:
+  <span class="k1">deploy</span>:
+    <span class="k1">runs-on</span>: <span class="s1">ubuntu-latest</span>
+
+    <span class="k1">steps</span>:
+      - <span class="k1">uses</span>: <span class="s1">actions/checkout@v4</span>
+
+      - <span class="k1">name</span>: <span class="s1">Set up Java</span>
+        <span class="k1">uses</span>: <span class="s1">actions/setup-java@v4</span>
+        <span class="k1">with</span>:
+          <span class="k1">distribution</span>: <span class="s1">'temurin'</span>
+          <span class="k1">java-version</span>: <span class="s1">'17'</span>
+
+      - <span class="k1">name</span>: <span class="s1">Download SQLcl</span>
+        <span class="k1">run</span>: |
+          wget -q https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip
+          unzip -q sqlcl-latest.zip
+
+      - <span class="k1">name</span>: <span class="s1">Set up wallet</span>
+        <span class="k1">run</span>: |
+          echo "<span class="x1">${{ secrets.WALLET_ZIP_B64 }}</span>" | base64 -d > wallet.zip
+          unzip -q wallet.zip -d wallet
+
+      - <span class="k1">name</span>: <span class="s1">Deploy to PROD workspace</span>
+        <span class="k1">run</span>: |
+          cat &lt;&lt;'EOF' > deploy_script.sql
+          set define off
+          set serveroutput on
+
+          declare
+            l_workspace_id number;
+          begin
+            select workspace_id into l_workspace_id
+            from apex_workspaces
+            where workspace = 'SUNIL_PROD';
+
+            apex_util.set_security_group_id(l_workspace_id);
+          end;
+          /
+
+          @apex/f100/install.sql
+
+          exit
+          EOF
+          sqlcl/bin/sql "<span class="x1">${{ secrets.DB_PROD_USER }}</span>/<span class="x1">${{ secrets.DB_PROD_PASS }}</span>@<span class="x1">${{ secrets.DB_SERVICE }}</span>?TNS_ADMIN=wallet" @deploy_script.sql</pre>
+          <button class="copy-btn" onclick="copyRaw(this, deployYaml)">Copy</button>
+        </div>
+
+        <div class="callout danger">
+          <div class="callout-title">YAML is indentation-sensitive</div>
+          Every step under <span class="inline-code">steps:</span> must start with exactly the same indentation. A single misaligned space (5 instead of 6, for example) will fail the workflow before it even runs.
+        </div>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 10 FIRST RUN ============ -->
+      <section class="chapter" id="first-run">
+        <div class="chapter-head"><span class="chapter-num">11</span><h2>First export &amp; deploy</h2></div>
+        <p class="chapter-dek">Putting it all together for the very first time.</p>
+
+        <ol class="steps">
+          <li><div><div class="step-title">Build something in DEV <span class="tag tag-you">you</span></div><div class="step-desc">Sign in to the DEV workspace, create an application via App Builder, note its application ID (e.g. 100).</div></div></li>
+          <li><div><div class="step-title">Export it with SQLcl <span class="tag tag-you">you</span></div><div class="step-desc">
+            <div class="os-only mac">
+            <div class="code-wrap">
+              <pre class="code" id="c7mac"><span class="p1">sql</span> <span class="s1">"SUNIL_GDS/YourPassword@xxxxx_tp?TNS_ADMIN=/path/to/wallet_unzipped"</span></pre>
+              <button class="copy-btn" onclick="copyBlock('c7mac', this)">Copy</button>
+            </div>
+            </div>
+            <div class="os-only win">
+            <div class="code-wrap">
+              <pre class="code" id="c7win"><span class="p1">sql</span> <span class="s1">"SUNIL_GDS/YourPassword@xxxxx_tp?TNS_ADMIN=C:\path\to\wallet_unzipped"</span></pre>
+              <button class="copy-btn" onclick="copyBlock('c7win', this)">Copy</button>
+            </div>
+            </div>
+            then inside the SQL prompt:
+            <div class="code-wrap">
+              <pre class="code" id="c8">apex export -applicationid 100 -split -expOriginalIds -skipExportDate
+exit</pre>
+              <button class="copy-btn" onclick="copyBlock('c8', this)">Copy</button>
+            </div>
+          </div></div></li>
+          <li><div><div class="step-title">Move the export into the repo <span class="tag tag-you">you</span></div><div class="step-desc">SQLcl writes <span class="inline-code">f100/</span> to whatever directory you ran it from — move it into the project's <span class="inline-code">apex/</span> folder.
+            <div class="os-only mac">
+            <div class="code-wrap">
+              <pre class="code" id="c9mac">mv f100 ~/Projects/apextogo/apex/</pre>
+              <button class="copy-btn" onclick="copyBlock('c9mac', this)">Copy</button>
+            </div>
+            </div>
+            <div class="os-only win">
+            <div class="code-wrap">
+              <pre class="code" id="c9win">Move-Item f100 C:\Projects\apextogo\apex\</pre>
+              <button class="copy-btn" onclick="copyBlock('c9win', this)">Copy</button>
+            </div>
+            </div>
+          </div></div></li>
+          <li><div><div class="step-title">Commit and push <span class="tag tag-you">you</span></div><div class="step-desc">
+            <div class="os-only mac">
+            <div class="code-wrap">
+              <pre class="code" id="c10mac">cd ~/Projects/apextogo
+git add .
+git commit -m "feat: initial export of app 100"
+git push origin main</pre>
+              <button class="copy-btn" onclick="copyBlock('c10mac', this)">Copy</button>
+            </div>
+            </div>
+            <div class="os-only win">
+            <div class="code-wrap">
+              <pre class="code" id="c10win">cd C:\Projects\apextogo
+git add .
+git commit -m "feat: initial export of app 100"
+git push origin main</pre>
+              <button class="copy-btn" onclick="copyBlock('c10win', this)">Copy</button>
+            </div>
+            </div>
+          </div></div></li>
+          <li><div><div class="step-title">Watch it deploy <span class="tag tag-auto">automatic</span></div><div class="step-desc">Open the repository's <strong>Actions</strong> tab. The workflow fires immediately, runs for roughly 30–60 seconds, and a green check confirms the app is now live in the PROD workspace.</div></div></li>
+        </ol>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 11 DAY TWO ============ -->
+      <section class="chapter" id="day-two">
+        <div class="chapter-head"><span class="chapter-num">12</span><h2>Shipping an enhancement</h2></div>
+        <p class="chapter-dek">Once live, this is the entire workflow for every future change — no setup steps repeat.</p>
+
+        <div class="pipeline">
+          <div class="pl-node"><div class="pl-node-title">Edit in DEV</div><div class="pl-node-sub">App Builder</div></div>
+          <div class="pl-arrow">→</div>
+          <div class="pl-node"><div class="pl-node-title">Re-export</div><div class="pl-node-sub">same SQLcl command</div></div>
+          <div class="pl-arrow">→</div>
+          <div class="pl-node"><div class="pl-node-title">Commit &amp; push</div><div class="pl-node-sub">describe the change</div></div>
+          <div class="pl-arrow">→</div>
+          <div class="pl-node auto"><div class="pl-node-title">PROD updated</div><div class="pl-node-sub">automatic</div></div>
+        </div>
+
+        <ol class="steps">
+          <li><div><div class="step-title">Make the change in DEV</div><div class="step-desc">Add a page, change a region, adjust validation — anything, normally, inside the DEV workspace App Builder.</div></div></li>
+          <li><div><div class="step-title">Re-run the same export command</div><div class="step-desc">
+            <div class="os-only mac">
+            <div class="code-wrap">
+              <pre class="code" id="c11mac"><span class="p1">sql</span> <span class="s1">"SUNIL_GDS/YourPassword@xxxxx_tp?TNS_ADMIN=/path/to/wallet_unzipped"</span></pre>
+              <button class="copy-btn" onclick="copyBlock('c11mac', this)">Copy</button>
+            </div>
+            </div>
+            <div class="os-only win">
+            <div class="code-wrap">
+              <pre class="code" id="c11win"><span class="p1">sql</span> <span class="s1">"SUNIL_GDS/YourPassword@xxxxx_tp?TNS_ADMIN=C:\path\to\wallet_unzipped"</span></pre>
+              <button class="copy-btn" onclick="copyBlock('c11win', this)">Copy</button>
+            </div>
+            </div>
+            <div class="code-wrap">
+              <pre class="code" id="c12">apex export -applicationid 100 -split -expOriginalIds -skipExportDate
+exit</pre>
+              <button class="copy-btn" onclick="copyBlock('c12', this)">Copy</button>
+            </div>
+            This regenerates only the files that actually changed — Git will show a small, readable diff rather than a wall of unrelated noise.
+          </div></div></li>
+          <li><div><div class="step-title">Overwrite the existing export folder</div><div class="step-desc">
+            <div class="os-only mac">
+            <div class="code-wrap">
+              <pre class="code" id="c13mac">rm -rf ~/Projects/apextogo/apex/f100
+mv f100 ~/Projects/apextogo/apex/</pre>
+              <button class="copy-btn" onclick="copyBlock('c13mac', this)">Copy</button>
+            </div>
+            </div>
+            <div class="os-only win">
+            <div class="code-wrap">
+              <pre class="code" id="c13win">Remove-Item -Recurse -Force C:\Projects\apextogo\apex\f100
+Move-Item f100 C:\Projects\apextogo\apex\</pre>
+              <button class="copy-btn" onclick="copyBlock('c13win', this)">Copy</button>
+            </div>
+            </div>
+          </div></div></li>
+          <li><div><div class="step-title">Review the diff before committing</div><div class="step-desc">In VS Code's Source Control panel (or GitLens), confirm the changed files match what you expect — this is the moment a code review would happen on a real team.</div></div></li>
+          <li><div><div class="step-title">Commit with a meaningful message</div><div class="step-desc">
+            <div class="code-wrap">
+              <pre class="code" id="c14">git add .
+git commit -m "feat: add customer search filter to page 5"
+git push origin main</pre>
+              <button class="copy-btn" onclick="copyBlock('c14', this)">Copy</button>
+            </div>
+            Adopting a prefix convention (<span class="inline-code">feat:</span>, <span class="inline-code">fix:</span>, <span class="inline-code">chore:</span>) makes the project history self-documenting over time.
+          </div></div></li>
+          <li><div><div class="step-title">CI/CD takes it from here <span class="tag tag-auto">automatic</span></div><div class="step-desc">The push triggers the same workflow: SQLcl downloads, the wallet unpacks, the PROD workspace context is set, and <span class="inline-code">install.sql</span> re-imports the application — overwriting the previous version in PROD with the new one.</div></div></li>
+        </ol>
+
+        <div class="callout">
+          <div class="callout-title">Working with a team — branch first</div>
+          For anything beyond solo experimentation, do the export and edit on a branch (<span class="inline-code">git checkout -b feature/search-filter</span>), open a pull request into <span class="inline-code">main</span>, and let a teammate review the diff before merging. The deploy only fires on pushes to <span class="inline-code">main</span>, so PROD is never touched by work still under review.
+        </div>
+
+        <div class="callout warn">
+          <div class="callout-title">Rolling back</div>
+          Because every deployed version is a Git commit, reverting PROD is reverting code: <span class="inline-code">git revert &lt;commit&gt;</span> and push. The workflow redeploys the prior version exactly as it existed at that commit.
+        </div>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 12 TROUBLESHOOTING ============ -->
+      <section class="chapter" id="troubleshooting">
+        <div class="chapter-head"><span class="chapter-num">13</span><h2>Troubleshooting log</h2></div>
+        <p class="chapter-dek">Real errors hit while building this pipeline, and what fixed each one.</p>
+
+        <table class="kv">
+          <tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">remote: Repository not found</td>
+            <td>Pushed before the GitHub repo existed</td>
+            <td>Create the repo on GitHub first, then push</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">zsh: no matches found</td>
+            <td>Unquoted <span class="inline-code">?</span> in connection string parsed as a shell glob</td>
+            <td>Wrap the entire connection string in double quotes</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">ORA-12154: TNS alias not found</td>
+            <td>A password containing <span class="inline-code">@</span> truncated the connection string</td>
+            <td>Reset the password to avoid <span class="inline-code">@</span> entirely</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">ORA-01017: invalid credential</td>
+            <td>Wrong username for the database type, e.g. assuming <span class="inline-code">admin</span> exists everywhere</td>
+            <td>Connect via Docker as <span class="inline-code">sys as sysdba</span> and check <span class="inline-code">dba_users</span> for the real schema name</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">Wallet download warning on APEX workload</td>
+            <td>APEX workload type doesn't support direct connections on Free Tier</td>
+            <td>Create the Autonomous DB as Transaction Processing instead</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">Version mismatch between local and cloud APEX</td>
+            <td>Local APEX newer than the cloud instance — higher-to-lower imports are blocked</td>
+            <td>Develop on the cloud DEV workspace directly so versions always match PROD</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">ORA-20001: g_security_group_id must be set</td>
+            <td><span class="inline-code">install.sql</span> run without first declaring which workspace to install into</td>
+            <td>Set <span class="inline-code">apex_util.set_security_group_id</span> from the workspace name before running the install script</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">Workflow fails before running</td>
+            <td>Inconsistent YAML indentation</td>
+            <td>Match every step's leading whitespace exactly</td>
+          </tr>
+        </table>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 14 GLOSSARY ============ -->
+      <section class="chapter" id="glossary">
+        <div class="chapter-head"><span class="chapter-num">14</span><h2>Glossary</h2></div>
+        <p class="chapter-dek">Every term used in this guide, in one place, for whenever a word stops making sense.</p>
+
+        <table class="kv">
+          <tr><th>Term</th><th>Meaning</th></tr>
+          <tr><td>APEX</td><td>Oracle Application Express — a low-code tool built into Oracle Database for building web applications</td></tr>
+          <tr><td>App Builder</td><td>The visual editor inside APEX where you design pages, not a separate product</td></tr>
+          <tr><td>Application ID</td><td>The number APEX assigns to every app, visible in its URL and used in every export/import command</td></tr>
+          <tr><td>SQLcl</td><td>Oracle's command-line tool for running SQL and PL/SQL, and for exporting/importing APEX apps</td></tr>
+          <tr><td>Split export</td><td>An APEX export format that creates one file per component (page, item, process) instead of one giant file, making changes easy to review in Git</td></tr>
+          <tr><td>install.sql</td><td>The master script inside a split export that, when run, recreates the entire application</td></tr>
+          <tr><td>Workspace</td><td>A self-contained area inside APEX with its own users and applications</td></tr>
+          <tr><td>Schema</td><td>The actual database storage area — tables, data — that a workspace is built on top of</td></tr>
+          <tr><td>Autonomous Database</td><td>Oracle's self-managing cloud database; Always Free tier never incurs charges within its limits</td></tr>
+          <tr><td>Wallet</td><td>A bundle of security certificates required to connect to an Autonomous Database</td></tr>
+          <tr><td>TNS_ADMIN</td><td>An environment setting that tells Oracle tools where to find the wallet files on disk</td></tr>
+          <tr><td>Repository (repo)</td><td>A Git-tracked project folder, typically hosted on GitHub</td></tr>
+          <tr><td>Commit</td><td>A saved snapshot of changes in Git, with a descriptive message</td></tr>
+          <tr><td>Push / Pull</td><td>Sending local commits to GitHub (push) or fetching new ones from GitHub (pull)</td></tr>
+          <tr><td>GitHub Actions</td><td>GitHub's built-in automation system; runs scripts ("workflows") in response to events like a push</td></tr>
+          <tr><td>Workflow / deploy.yml</td><td>The YAML file describing what GitHub Actions should do and when — in this case, deploy on every push to main</td></tr>
+          <tr><td>GitHub Secret</td><td>An encrypted value (like a password) stored in a repository's settings, accessible to workflows but never shown in logs</td></tr>
+          <tr><td>CI/CD</td><td>Continuous Integration / Continuous Deployment — the practice of automatically testing and shipping code changes</td></tr>
+        </table>
+      </section>
+
+    </div>
+
+    <footer>
+      <span>Built from a real, working pipeline — not a theoretical one.</span>
+      <span>Oracle APEX · GitHub Actions · SQLcl</span>
+    </footer>
+  </main>
+</div>
+
+<script>
+  function setOS(os) {
+    document.body.classList.remove('os-mac', 'os-win');
+    document.body.classList.add('os-' + os);
+    document.querySelectorAll('.os-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.os === os);
+    });
+  }
+  setOS('mac');
+
+  // Copy handling for blocks identified by element id (innerText)
+  function copyBlock(id, btn) {
+    const el = document.getElementById(id);
+    const text = el.innerText;
+    navigator.clipboard.writeText(text).then(() => flashCopied(btn));
+  }
+
+  // Active nav highlighting on scroll
+  const sections = document.querySelectorAll('section.chapter');
+  const links = document.querySelectorAll('.nav-link');
+  function setActive() {
+    let current = '';
+    sections.forEach(sec => {
+      const rect = sec.getBoundingClientRect();
+      if (rect.top <= 140) current = sec.id;
+    });
+    links.forEach(l => {
+      l.classList.toggle('is-active', l.getAttribute('href') === '#' + current);
+    });
+  }
+  window.addEventListener('scroll', setActive);
+  setActive();
+
+  function flashCopied(btn) {
+    const original = btn.textContent;
+    btn.textContent = 'Copied';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 1600);
+  }
+
+  const deployYaml = `name: Deploy DEV export to PROD APEX Workspace
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Download SQLcl
+        run: |
+          wget -q https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip
+          unzip -q sqlcl-latest.zip
+
+      - name: Set up wallet
+        run: |
+          echo "\${{ secrets.WALLET_ZIP_B64 }}" | base64 -d > wallet.zip
+          unzip -q wallet.zip -d wallet
+
+      - name: Deploy to PROD workspace
+        run: |
+          cat <<'EOF' > deploy_script.sql
+          set define off
+          set serveroutput on
+
+          declare
+            l_workspace_id number;
+          begin
+            select workspace_id into l_workspace_id
+            from apex_workspaces
+            where workspace = 'SUNIL_PROD';
+
+            apex_util.set_security_group_id(l_workspace_id);
+          end;
+          /
+
+          @apex/f100/install.sql
+
+          exit
+          EOF
+          sqlcl/bin/sql "\${{ secrets.DB_PROD_USER }}/\${{ secrets.DB_PROD_PASS }}@\${{ secrets.DB_SERVICE }}?TNS_ADMIN=wallet" @deploy_script.sql`;
+
+  function copyRaw(btn, text) {
+    navigator.clipboard.writeText(text).then(() => flashCopied(btn));
+  }
+</script>
+
+</body>
+</html>
