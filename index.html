@@ -515,8 +515,11 @@
     <div class="nav-group">
       <div class="nav-group-label">Living with it</div>
       <a class="nav-link" href="#day-two"><span class="nav-num">12</span> Shipping an enhancement</a>
-      <a class="nav-link" href="#troubleshooting"><span class="nav-num">13</span> Troubleshooting log</a>
-      <a class="nav-link" href="#glossary"><span class="nav-num">14</span> Glossary</a>
+      <a class="nav-link" href="#db-migrations"><span class="nav-num">13</span> DB migrations with Liquibase</a>
+      <a class="nav-link" href="#liquibase-setup"><span class="nav-num">14</span> Liquibase setup</a>
+      <a class="nav-link" href="#shipping-db-changes"><span class="nav-num">15</span> Shipping DB changes</a>
+      <a class="nav-link" href="#troubleshooting"><span class="nav-num">16</span> Troubleshooting log</a>
+      <a class="nav-link" href="#glossary"><span class="nav-num">17</span> Glossary</a>
     </div>
   </nav>
 
@@ -1159,9 +1162,267 @@ git push origin main</pre>
 
       <hr class="divider-rule">
 
-      <!-- ============ 12 TROUBLESHOOTING ============ -->
+      <!-- ============ 13 DB MIGRATIONS ============ -->
+      <section class="chapter" id="db-migrations">
+        <div class="chapter-head"><span class="chapter-num">13</span><h2>DB migrations with Liquibase</h2></div>
+        <p class="chapter-dek">Why the pipeline deploys database objects separately from the APEX app, and how Liquibase makes sure only new changes ever run.</p>
+
+        <div class="box">
+          <div class="box-title">The problem Liquibase solves</div>
+          <p style="font-size:14.5px; line-height:1.75;">Without Liquibase, the pipeline would have to choose between two bad options: run all DDL every time (risking "table already exists" errors and overwriting data), or do nothing with the database and deploy only the APEX app. Liquibase is a third option — it keeps a record of every migration that has already run and only applies the ones that haven't.</p>
+        </div>
+
+        <div class="box">
+          <div class="box-title">How Liquibase tracks what's been applied</div>
+          <p style="font-size:14.5px; line-height:1.75; margin-bottom:10px;">On its first run, Liquibase creates three tracking tables in your PROD schema:</p>
+          <table class="kv">
+            <tr><th>Table</th><th>Purpose</th></tr>
+            <tr><td>DATABASECHANGELOG</td><td>Records every changeset that has been applied — filename, date, checksum</td></tr>
+            <tr><td>DATABASECHANGELOGLOCK</td><td>Prevents two deployments running simultaneously</td></tr>
+            <tr><td>DATABASECHANGELOG_ACTIONS</td><td>Detailed audit of every SQL statement executed</td></tr>
+          </table>
+          <p style="font-size:14px; color:var(--slate); margin-top:8px;">On every subsequent run, Liquibase reads <span class="inline-code">DATABASECHANGELOG</span>, compares it against your changelog files, and only runs what's missing.</p>
+        </div>
+
+        <div class="box">
+          <div class="box-title">Migration file naming convention</div>
+          <p style="font-size:14px; color:var(--slate); margin-bottom:10px;">Every migration file lives in <span class="inline-code">db/changelog/</span> and follows a strict naming pattern:</p>
+          <div class="code-wrap">
+            <pre class="code" id="cmigname">V1__initial_schema.sql       ← runs once on first deploy
+V2__add_phone_to_restaurant.sql  ← runs once when added
+V3__create_orders_view.sql       ← runs once when added</pre>
+            <button class="copy-btn" onclick="copyBlock('cmigname', this)">Copy</button>
+          </div>
+          <p style="font-size:13.5px; color:var(--slate);">The number prefix is the version. The description after the double underscore is free text — make it meaningful. Once a file is applied it can never be changed — Liquibase stores its checksum and will fail if the file is modified after deployment.</p>
+        </div>
+
+        <div class="callout danger">
+          <div class="callout-title">Never modify a migration file after it has been deployed</div>
+          Liquibase checksums every file when it runs. If you change a file that's already in <span class="inline-code">DATABASECHANGELOG</span>, the next deployment fails with a checksum mismatch error. Always add a new <span class="inline-code">V(n+1)__</span> file for changes — never edit existing ones.
+        </div>
+
+        <div class="box">
+          <div class="box-title">Deployment order — why DB runs before APEX</div>
+          <p style="font-size:14.5px; line-height:1.75;">The pipeline always runs Liquibase <strong>before</strong> the APEX import. This matters because the APEX app references tables — if a new page references a table that doesn't exist yet in PROD, the import would succeed but the page would throw errors at runtime. Running migrations first guarantees the database is always ready for the app version being deployed.</p>
+        </div>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 14 LIQUIBASE SETUP ============ -->
+      <section class="chapter" id="liquibase-setup">
+        <div class="chapter-head"><span class="chapter-num">14</span><h2>Liquibase setup</h2></div>
+        <p class="chapter-dek">The files that power Liquibase in this pipeline and what each one does.</p>
+
+        <div class="box">
+          <div class="box-title">Project structure with Liquibase</div>
+          <div class="tree">
+<span class="d">apextogo/</span>
+├── <span class="d">.github/workflows/</span>
+│   └── <span class="f">deploy.yml</span>              <span class="c"># CI/CD pipeline</span>
+├── <span class="d">apex/f100/</span>
+│   └── <span class="f">install.sql</span>             <span class="c"># APEX app export</span>
+├── <span class="d">db/</span>
+│   └── <span class="d">changelog/</span>
+│       ├── <span class="f">V1__initial_schema.sql</span>  <span class="c"># initial tables, triggers, packages</span>
+│       └── <span class="f">V2__your_next_change.sql</span> <span class="c"># future changes go here</span>
+├── <span class="f">db.changelog-master.xml</span>         <span class="c"># Liquibase master list</span>
+├── <span class="f">liquibase.properties</span>            <span class="c"># Liquibase config</span>
+└── <span class="f">export.sql</span>                      <span class="c"># local export script</span>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-title">db.changelog-master.xml</div>
+          <p style="font-size:14px; color:var(--slate); margin-bottom:10px;">This file tells Liquibase where to find migration files. The <span class="inline-code">includeAll</span> tag automatically picks up every <span class="inline-code">.sql</span> file in the changelog folder in alphabetical order — so new files are discovered automatically, no manual registration needed.</p>
+          <div class="code-wrap">
+            <pre class="code" id="cmasterxml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd"&gt;
+
+    &lt;!-- Automatically picks up all .sql files in db/changelog/ --&gt;
+    &lt;includeAll path="db/changelog/"
+                relativeToChangelogFile="false"/&gt;
+
+&lt;/databaseChangeLog&gt;</pre>
+            <button class="copy-btn" onclick="copyBlock('cmasterxml', this)">Copy</button>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-title">liquibase.properties</div>
+          <p style="font-size:14px; color:var(--slate); margin-bottom:10px;">This one-line file tells SQLcl's built-in Liquibase where the master changelog lives. SQLcl handles the database connection itself — no connection details needed here.</p>
+          <div class="code-wrap">
+            <pre class="code" id="clbprops">changeLogFile=db.changelog-master.xml</pre>
+            <button class="copy-btn" onclick="copyBlock('clbprops', this)">Copy</button>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-title">The complete deploy.yml with Liquibase</div>
+          <div class="code-wrap">
+            <pre class="code" id="cdeployyml"><span class="k1">name</span>: <span class="s1">Deploy APEXToGo to PROD</span>
+
+<span class="k1">on</span>:
+  <span class="k1">push</span>:
+    <span class="k1">branches</span>: [<span class="s1">main</span>]
+
+<span class="k1">jobs</span>:
+  <span class="k1">deploy</span>:
+    <span class="k1">runs-on</span>: <span class="s1">ubuntu-latest</span>
+    <span class="k1">steps</span>:
+      - <span class="k1">uses</span>: <span class="s1">actions/checkout@v4</span>
+
+      - <span class="k1">name</span>: <span class="s1">Set up Java</span>
+        <span class="k1">uses</span>: <span class="s1">actions/setup-java@v4</span>
+        <span class="k1">with</span>:
+          <span class="k1">distribution</span>: <span class="s1">'temurin'</span>
+          <span class="k1">java-version</span>: <span class="s1">'17'</span>
+
+      - <span class="k1">name</span>: <span class="s1">Download SQLcl</span>
+        <span class="k1">run</span>: |
+          wget -q https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip
+          unzip -q sqlcl-latest.zip
+
+      - <span class="k1">name</span>: <span class="s1">Set up wallet</span>
+        <span class="k1">run</span>: |
+          echo "<span class="x1">${{ secrets.WALLET_ZIP_B64 }}</span>" | base64 -d > wallet.zip
+          unzip -q wallet.zip -d wallet
+
+      - <span class="k1">name</span>: <span class="s1">Run database migrations</span>
+        <span class="k1">env</span>:
+          <span class="k1">LIQUIBASE_COMMAND_CHANGELOG_FILE</span>: <span class="s1">db.changelog-master.xml</span>
+        <span class="k1">run</span>: |
+          cat &lt;&lt;'EOF' > liquibase_update.sql
+          liquibase update
+          exit
+          EOF
+          sqlcl/bin/sql "<span class="x1">${{ secrets.DB_PROD_USER }}</span>/<span class="x1">${{ secrets.DB_PROD_PASS }}</span>@<span class="x1">${{ secrets.DB_SERVICE }}</span>?TNS_ADMIN=wallet" @liquibase_update.sql
+
+      - <span class="k1">name</span>: <span class="s1">Deploy APEX application</span>
+        <span class="k1">run</span>: |
+          cat &lt;&lt;'EOF' > deploy_script.sql
+          set define off
+          set serveroutput on
+          declare
+            l_workspace_id number;
+          begin
+            select workspace_id into l_workspace_id
+            from apex_workspaces
+            where workspace = 'SUNIL_PROD';
+            apex_util.set_security_group_id(l_workspace_id);
+          end;
+          /
+          @apex/f100/install.sql
+          exit
+          EOF
+          sqlcl/bin/sql "<span class="x1">${{ secrets.DB_PROD_USER }}</span>/<span class="x1">${{ secrets.DB_PROD_PASS }}</span>@<span class="x1">${{ secrets.DB_SERVICE }}</span>?TNS_ADMIN=wallet" @deploy_script.sql</pre>
+            <button class="copy-btn" onclick="copyBlock('cdeployyml', this)">Copy</button>
+          </div>
+        </div>
+
+        <div class="callout">
+          <div class="callout-title">Key insight — LIQUIBASE_COMMAND_CHANGELOG_FILE environment variable</div>
+          SQLcl's built-in Liquibase reads configuration from environment variables in the format <span class="inline-code">LIQUIBASE_COMMAND_&lt;ARGUMENT&gt;</span>. Setting <span class="inline-code">LIQUIBASE_COMMAND_CHANGELOG_FILE</span> in the GitHub Actions <span class="inline-code">env</span> block is how the changelog path reaches Liquibase — the <span class="inline-code">liquibase.properties</span> file alone isn't read by SQLcl's internal wrapper.
+        </div>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 15 SHIPPING DB CHANGES ============ -->
+      <section class="chapter" id="shipping-db-changes">
+        <div class="chapter-head"><span class="chapter-num">15</span><h2>Shipping DB changes day to day</h2></div>
+        <p class="chapter-dek">The exact steps for every scenario you'll encounter once the pipeline is live.</p>
+
+        <div class="box">
+          <div class="box-title">Scenario A — APEX UI change only (no DB changes)</div>
+          <p style="font-size:14px; color:var(--slate); margin-bottom:12px;">You changed a page, added a region, updated a validation — nothing in the database changed.</p>
+          <ol class="steps">
+            <li><div><div class="step-title">Export the app from DEV</div><div class="step-desc">
+              <div class="code-wrap"><pre class="code" id="cscenarioa1">sql "SUNIL_GDS/pass@service?TNS_ADMIN=/path/to/wallet" @export.sql</pre><button class="copy-btn" onclick="copyBlock('cscenarioa1',this)">Copy</button></div>
+            </div></div></li>
+            <li><div><div class="step-title">Move export into place</div><div class="step-desc">
+              <div class="os-only mac"><div class="code-wrap"><pre class="code" id="cscenarioa2mac">rm -rf apex/f100 && mv f100 apex/</pre><button class="copy-btn" onclick="copyBlock('cscenarioa2mac',this)">Copy</button></div></div>
+              <div class="os-only win"><div class="code-wrap"><pre class="code" id="cscenarioa2win">Remove-Item -Recurse -Force apex\f100; Move-Item f100 apex\</pre><button class="copy-btn" onclick="copyBlock('cscenarioa2win',this)">Copy</button></div></div>
+            </div></div></li>
+            <li><div><div class="step-title">Commit and push — no new migration file needed</div><div class="step-desc">
+              <div class="code-wrap"><pre class="code" id="cscenarioa3">git add .
+git commit -m "feat: update page 5 report columns"
+git push origin main</pre><button class="copy-btn" onclick="copyBlock('cscenarioa3',this)">Copy</button></div>
+              Liquibase sees nothing new in <span class="inline-code">db/changelog/</span> and skips — only the APEX app deploys.
+            </div></div></li>
+          </ol>
+        </div>
+
+        <div class="box">
+          <div class="box-title">Scenario B — DB change + APEX change together</div>
+          <p style="font-size:14px; color:var(--slate); margin-bottom:12px;">You added a column in DEV and built a new APEX page that uses it. Both need to go to PROD together.</p>
+          <ol class="steps">
+            <li><div><div class="step-title">Find what changed in your DB</div><div class="step-desc">Connect to DEV and run:
+              <div class="code-wrap"><pre class="code" id="cscenariob1">select object_type, object_name 
+from all_objects 
+where owner = 'SUNIL_GDS'
+minus
+select object_type, object_name 
+from all_objects 
+where owner = 'SUNIL_GDS_PRD';</pre><button class="copy-btn" onclick="copyBlock('cscenariob1',this)">Copy</button></div>
+              This shows exactly what's in DEV but not yet in PROD.
+            </div></div></li>
+            <li><div><div class="step-title">Write a new migration file</div><div class="step-desc">Create <span class="inline-code">db/changelog/V2__your_change_description.sql</span> and write only the new change:
+              <div class="code-wrap"><pre class="code" id="cscenariob2">-- Example: adding a phone number column
+ALTER TABLE SAMPLE_RESTAURANT 
+ADD PHONE_NUMBER VARCHAR2(20);
+
+-- Example: adding a new table
+CREATE TABLE SAMPLE_RESTAURANT_REVIEWS (
+  ID          NUMBER GENERATED BY DEFAULT ON NULL AS IDENTITY,
+  RESTAURANT_ID NUMBER,
+  RATING      NUMBER,
+  COMMENT     VARCHAR2(4000),
+  CREATED     DATE,
+  CONSTRAINT SAMPLE_RESTAURANT_REVIEWS_PK PRIMARY KEY (ID)
+);</pre><button class="copy-btn" onclick="copyBlock('cscenariob2',this)">Copy</button></div>
+            </div></div></li>
+            <li><div><div class="step-title">Export the APEX app</div><div class="step-desc">
+              <div class="code-wrap"><pre class="code" id="cscenariob3">sql "SUNIL_GDS/pass@service?TNS_ADMIN=/path/to/wallet" @export.sql</pre><button class="copy-btn" onclick="copyBlock('cscenariob3',this)">Copy</button></div>
+            </div></div></li>
+            <li><div><div class="step-title">Move export and commit everything together</div><div class="step-desc">
+              <div class="os-only mac"><div class="code-wrap"><pre class="code" id="cscenariob4mac">rm -rf apex/f100 && mv f100 apex/
+git add .
+git commit -m "feat: add phone number field to restaurant"
+git push origin main</pre><button class="copy-btn" onclick="copyBlock('cscenariob4mac',this)">Copy</button></div></div>
+              <div class="os-only win"><div class="code-wrap"><pre class="code" id="cscenariob4win">Remove-Item -Recurse -Force apex\f100; Move-Item f100 apex\
+git add .
+git commit -m "feat: add phone number field to restaurant"
+git push origin main</pre><button class="copy-btn" onclick="copyBlock('cscenariob4win',this)">Copy</button></div></div>
+              GitHub Actions runs V2 migration first, then imports the updated app. Both land atomically.
+            </div></div></li>
+          </ol>
+        </div>
+
+        <div class="box">
+          <div class="box-title">Scenario C — Verify what Liquibase has run</div>
+          <p style="font-size:14px; color:var(--slate); margin-bottom:10px;">Connect to PROD and query the tracking table:</p>
+          <div class="code-wrap"><pre class="code" id="cscenarioc">select id, filename, dateexecuted, exectype
+from databasechangelog
+order by dateexecuted;</pre><button class="copy-btn" onclick="copyBlock('cscenarioc',this)">Copy</button></div>
+          <p style="font-size:13.5px; color:var(--slate); margin-top:8px;">Every row is a migration that has been applied. If a file appears here it will never run again.</p>
+        </div>
+
+        <div class="callout warn">
+          <div class="callout-title">Rolling back a DB change</div>
+          To undo a database change in PROD, don't delete or edit the migration file — add a new one that reverses it. For example if V2 added a column, V3 would <span class="inline-code">ALTER TABLE DROP COLUMN</span>. This keeps the history intact and Liquibase's tracking consistent.
+        </div>
+      </section>
+
+      <hr class="divider-rule">
+
+      <!-- ============ 16 TROUBLESHOOTING ============ -->
       <section class="chapter" id="troubleshooting">
-        <div class="chapter-head"><span class="chapter-num">13</span><h2>Troubleshooting log</h2></div>
+        <div class="chapter-head"><span class="chapter-num">16</span><h2>Troubleshooting log</h2></div>
         <p class="chapter-dek">Real errors hit while building this pipeline, and what fixed each one.</p>
 
         <table class="kv">
@@ -1206,6 +1467,31 @@ git push origin main</pre>
             <td>Inconsistent YAML indentation</td>
             <td>Match every step's leading whitespace exactly</td>
           </tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">SSO KeyStore not available / ORA-17957</td>
+            <td>Standalone Liquibase can't read Oracle's SSO wallet format</td>
+            <td>Use SQLcl's built-in Liquibase — SQLcl handles Oracle wallets natively</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">Option not recognized / Unexpected token</td>
+            <td>Wrong flag syntax for SQLcl's Liquibase vs standalone Liquibase</td>
+            <td>Use <span class="inline-code">LIQUIBASE_COMMAND_CHANGELOG_FILE</span> env variable instead of inline flags</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">Invalid argument 'changelogFile': missing required argument</td>
+            <td><span class="inline-code">liquibase.properties</span> not being read by SQLcl's internal working directory</td>
+            <td>Set <span class="inline-code">LIQUIBASE_COMMAND_CHANGELOG_FILE</span> as a GitHub Actions <span class="inline-code">env</span> variable on the migration step</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">Liquibase checksum mismatch error</td>
+            <td>An already-deployed migration file was edited after deployment</td>
+            <td>Never edit deployed files — create a new <span class="inline-code">V(n+1)__</span> file with the corrective change</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono); color:var(--ink); font-size:12.5px;">Tables missing in PROD but package deployed</td>
+            <td>DDL export truncated or auto-cleaning script failed on multi-line statements</td>
+            <td>Use hand-crafted idempotent migration files in <span class="inline-code">db/changelog/</span></td>
+          </tr>
         </table>
       </section>
 
@@ -1213,7 +1499,7 @@ git push origin main</pre>
 
       <!-- ============ 14 GLOSSARY ============ -->
       <section class="chapter" id="glossary">
-        <div class="chapter-head"><span class="chapter-num">14</span><h2>Glossary</h2></div>
+        <div class="chapter-head"><span class="chapter-num">17</span><h2>Glossary</h2></div>
         <p class="chapter-dek">Every term used in this guide, in one place, for whenever a word stops making sense.</p>
 
         <table class="kv">
@@ -1235,6 +1521,11 @@ git push origin main</pre>
           <tr><td>GitHub Actions</td><td>GitHub's built-in automation system; runs scripts ("workflows") in response to events like a push</td></tr>
           <tr><td>Workflow / deploy.yml</td><td>The YAML file describing what GitHub Actions should do and when — in this case, deploy on every push to main</td></tr>
           <tr><td>GitHub Secret</td><td>An encrypted value (like a password) stored in a repository's settings, accessible to workflows but never shown in logs</td></tr>
+          <tr><td>Liquibase</td><td>A database migration tool that tracks which SQL scripts have been applied and only runs new ones</td></tr>
+          <tr><td>Migration file</td><td>A versioned SQL file (e.g. V2__add_column.sql) that makes one specific DB change — runs exactly once and never again</td></tr>
+          <tr><td>DATABASECHANGELOG</td><td>The tracking table Liquibase creates in your schema — records every migration applied, when, and its checksum</td></tr>
+          <tr><td>Changeset / changelog</td><td>A changelog is the master list of migration files; a changeset is one entry within it</td></tr>
+          <tr><td>Idempotent</td><td>Safe to run multiple times with the same result — a CREATE TABLE wrapped in "skip if exists" logic is idempotent</td></tr>
           <tr><td>CI/CD</td><td>Continuous Integration / Continuous Deployment — the practice of automatically testing and shipping code changes</td></tr>
         </table>
       </section>
